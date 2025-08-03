@@ -3,32 +3,42 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { MessageCard } from "./message-card";
 import { MessageForm } from "./message-form";
 import { useEffect, useRef } from "react";
+import { Fragment } from "@/generated/prisma";
+import { MessageLoading } from "./message-loading";
 
 // Define the props for the MessagesContainer component
 
 interface MessagesContainerProps {
     projectId: string;
+    activeFragment: Fragment | null;
+    setActiveFragment: (fragment: Fragment | null) => void;
 }
-export const MessagesContainer = ({ projectId }: MessagesContainerProps ) => { 
+export const MessagesContainer = ({ projectId, activeFragment, setActiveFragment }: MessagesContainerProps ) => { 
     const bottomRef = useRef<HTMLDivElement>(null);  
     const trpc = useTRPC();
     const {data: messages} = useSuspenseQuery(
         trpc.messages.getMany.queryOptions({
             projectId: projectId
-        })
+        }, {refetchInterval: 5000})
     );
 
     useEffect(()=>{
-        const lastAssistantMessage = messages.findLast((message) => message.role === "ASSISTANT");
-        if (lastAssistantMessage) {
-            // TODO SET ACTIVE FRAGMENT
+        const lastAssistantMessageWithFragment = messages.findLast((message) => message.role === "ASSISTANT" && !!message.fragment);
+        if (lastAssistantMessageWithFragment) {
+           setActiveFragment(lastAssistantMessageWithFragment.fragment);
         }
 
-    },[messages])
+    },[messages, setActiveFragment])
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages.length]);
+
+
+    const lastMessage = messages[messages.length - 1];
+
+    const isLastMessageUser = lastMessage?.role === "USER";
+
 
     return (
         <div className="flex flex-col flex-1 min-h-0">
@@ -39,11 +49,12 @@ export const MessagesContainer = ({ projectId }: MessagesContainerProps ) => {
                     role={message.role} 
                     fragment={message.fragment}
                     createdAt={message.createdAt}
-                    isActiveFragment={false}
-                    onFragmentClick={() => {}}
+                    isActiveFragment={activeFragment?.id === message.fragment?.id}
+                    onFragmentClick={() => setActiveFragment(message.fragment)}
                     type={message.type}
                     />
                 ))}
+                { isLastMessageUser && <MessageLoading />}
                 <div ref={bottomRef} />
             </div>
             <div className="relative p-3 pt-1">
