@@ -6,10 +6,12 @@ import { useState } from "react";
 import { FormField } from "@/components/ui/form";
 import TextareaAutosize from "react-textarea-autosize";
 import { Button } from "@/components/ui/button";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { ArrowUpIcon, Loader } from "lucide-react";
 import { toast } from "sonner";
+import { Usage } from "./usage";
+import { useRouter } from "next/router";
 
 const formSchema = z.object({
   value: z
@@ -19,9 +21,10 @@ const formSchema = z.object({
 });
 
 export const MessageForm = ({ projectId }: { projectId: string }) => {
+  const router = useRouter();
   const [isFocused, setIsFocused] = useState(false);
-  const showUsage = false; // This should be replaced with actual logic to determine if usage should be shown
-
+  const trpc = useTRPC();
+  const {data: usage} = useQuery(trpc.usage.status.queryOptions())
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -30,7 +33,9 @@ export const MessageForm = ({ projectId }: { projectId: string }) => {
     },
   });
 
-  const trpc = useTRPC();
+  const showUsage = !!usage
+
+
   const queryClient = useQueryClient();
   const createMessage = useMutation(trpc.messages.create.mutationOptions({
     onSuccess:()=>{
@@ -40,10 +45,15 @@ export const MessageForm = ({ projectId }: { projectId: string }) => {
                 projectId
             }),
         )
+        queryClient.invalidateQueries(
+          trpc.usage.status.queryOptions()
+        )
     },
     onError: (error) => {
       toast.error(error.message);
-    }
+      if(error.data?.code === "TOO_MANY_REQUESTS") {
+        router.push("/pricing");
+    }}
   }));
 
   const isPending = createMessage.isPending;
@@ -59,6 +69,7 @@ export const MessageForm = ({ projectId }: { projectId: string }) => {
   };
   return (
     <Form {...form} className="flex gap-x-2">
+      { showUsage && <Usage points={usage.remainingPoints} msBeforeNext={usage.msBeforeNext} />}
       <form
         onSubmit={form.handleSubmit(onSubmit)}
         className={cn(
