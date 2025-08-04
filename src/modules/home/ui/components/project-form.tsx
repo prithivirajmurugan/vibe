@@ -7,12 +7,13 @@ import { useState } from "react";
 import { FormField } from "@/components/ui/form";
 import TextareaAutosize from "react-textarea-autosize";
 import { Button } from "@/components/ui/button";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { ArrowUpIcon, Loader } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/router";
 import { PROJECT_TEMPLATES } from "@/app/(home)/constant";
+import { useClerk } from "@clerk/nextjs";
 
 const formSchema = z.object({
   value: z
@@ -23,6 +24,8 @@ const formSchema = z.object({
 
 export const ProjectForm = () => {
   const [isFocused, setIsFocused] = useState(false);
+  const queryClient = useQueryClient();
+  const clerk = useClerk()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -45,9 +48,16 @@ export const ProjectForm = () => {
   const createProject = useMutation(
     trpc.projects.create.mutationOptions({
       onSuccess: (data) => {
+        queryClient.invalidateQueries(
+          trpc.projects.getMany.queryOptions()
+        );
+
         router.push(`/projects/${data.id}`);
       },
       onError: (error) => {
+        if (error.data?.code === "UNAUTHORIZED") { 
+            clerk.openSignIn()
+        }
         toast.error(error.message);
       },
     })
