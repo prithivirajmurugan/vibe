@@ -18,7 +18,6 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { TreeView } from "./tree-view";
-import { set } from "zod";
 
 type FileCollection = { [path: string]: string };
 
