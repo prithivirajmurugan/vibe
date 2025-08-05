@@ -5,7 +5,6 @@ import { getSandbox, lastAssisantTextMessageContent } from './utils';
 import { z } from 'zod';
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from '@/prompt';
 import prisma from '@/lib/db';
-import { fr } from 'date-fns/locale';
 
 interface AgentState {
     summary: string;
@@ -18,6 +17,7 @@ export const codeAgentFunction = inngest.createFunction(
     async ({ event, step }) => {
         const sandboxId = await step.run('get-sandbox-id', async () => {
             const sandbox = await Sandbox.create('vibe-nextjs-test-asd-2');
+            await sandbox.setTimeout(60_000 * 10 * 3); // 1 hour timeout
             return sandbox.sandboxId;
         })
 
@@ -30,6 +30,7 @@ export const codeAgentFunction = inngest.createFunction(
                 orderBy: {
                     createdAt: 'desc',
                 },
+                take: 10,
             });
             for (const message of messages) {
                 formattedMessages.push({
@@ -38,7 +39,7 @@ export const codeAgentFunction = inngest.createFunction(
                     type: 'text',
                 });
             }
-            return formattedMessages
+            return formattedMessages.reverse(); // Reverse to maintain chronological order
         })
 
         const state = createState<AgentState>({

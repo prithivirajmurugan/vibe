@@ -18,7 +18,7 @@ export const ProjectHeader = ({ projectId }: Props) => {
     const { data: project } = useSuspenseQuery(
         trpc.projects.getOne.queryOptions({
             id: projectId
-        }, { refetchInterval: 5000 })
+        }, { refetchInterval: 2000 })
     )
 
     const { setTheme, theme } = useTheme();
